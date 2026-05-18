@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClimateITS — Pemantauan Iklim Kota Surabaya</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --green: #00C896;
+    --green-dark: #009E74;
+    --earth: #1A2E1A;
+    --earth-mid: #243324;
+    --earth-light: #2E4A2E;
+    --muted: #8FAF8F;
+    --text: #E8F5E8;
+    --text-dim: #B0CCB0;
+    --accent: #FFD166;
+    --danger: #FF6B6B;
+    --card-bg: rgba(30, 55, 30, 0.7);
+    --border: rgba(0, 200, 150, 0.2);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--earth); color: var(--text); font-family: 'Sora', sans-serif; overflow-x: hidden; }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 50% at 20% 20%, rgba(0,200,150,0.08) 0%, transparent 60%), radial-gradient(ellipse 60% 40% at 80% 80%, rgba(0,150,100,0.06) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(26,46,26,0.95); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 60px;
+  }
+  .nav-logo { font-family: 'Space Mono', monospace; font-size: 1.1rem; color: var(--green); letter-spacing: -0.02em; }
+  .nav-logo span { color: var(--accent); }
+  nav ul { list-style: none; display: flex; gap: 2rem; }
+  nav ul a { color: var(--text-dim); text-decoration: none; font-size: 0.85rem; transition: color 0.2s; }
+  nav ul a:hover { color: var(--green); }
+  .nav-badge { font-family: 'Space Mono', monospace; font-size: 0.7rem; background: rgba(0,200,150,0.15); color: var(--green); border: 1px solid var(--border); padding: 4px 10px; border-radius: 20px; }
+  .ticker-wrap { background: rgba(0,200,150,0.06); border-bottom: 1px solid var(--border); overflow: hidden; padding: 10px 0; position: relative; z-index: 1; }
+  .ticker-track { display: flex; gap: 3rem; animation: ticker 30s linear infinite; width: max-content; }
+  @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .ticker-item { display: flex; align-items: center; gap: 8px; font-family: 'Space Mono', monospace; font-size: 0.72rem; color: var(--text-dim); white-space: nowrap; }
+  .ticker-item .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .hero { position: relative; z-index: 1; min-height: 88vh; display: flex; align-items: center; padding: 4rem 2rem; max-width: 1200px; margin: 0 auto; gap: 4rem; }
+  .hero-text { flex: 1; }
+  .hero-tag { display: inline-flex; align-items: center; gap: 8px; font-family: 'Space Mono', monospace; font-size: 0.75rem; color: var(--green); border: 1px solid var(--border); padding: 6px 14px; border-radius: 20px; margin-bottom: 1.5rem; background: rgba(0,200,150,0.05); }
+  .hero-tag::before { content: ''; width: 8px; height: 8px; background: var(--green); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
+  .hero h1 { font-size: clamp(2.2rem, 5vw, 3.8rem); font-weight: 700; line-height: 1.1; margin-bottom: 1.2rem; letter-spacing: -0.03em; }
+  .hero h1 .highlight { color: var(--green); display: block; }
+  .hero p { font-size: 1rem; color: var(--text-dim); line-height: 1.7; max-width: 500px; margin-bottom: 1rem; }
+  .ai-note { font-size: 0.8rem; color: var(--muted); border-left: 2px solid var(--border); padding-left: 10px; margin-top: 1.2rem; line-height: 1.6; }
+  .hero-visual { flex: 1; display: flex; flex-direction: column; gap: 12px; max-width: 380px; }
+  .mini-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.2rem; backdrop-filter: blur(8px); animation: floatIn 0.6s ease both; }
+  .mini-card:nth-child(2) { animation-delay: 0.15s; margin-left: 30px; }
+  .mini-card:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes floatIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .mini-card-label { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .mini-card-value { font-size: 1.6rem; font-weight: 700; color: var(--green); }
+  .mini-card-value.warn { color: var(--accent); }
+  .mini-card-value.danger { color: var(--danger); }
+  .mini-card-sub { font-size: 0.78rem; color: var(--text-dim); margin-top: 2px; }
+  section { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 5rem 2rem; }
+  .section-label { font-family: 'Space Mono', monospace; font-size: 0.72rem; color: var(--green); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem; }
+  .section-title { font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
+  .section-sub { color: var(--text-dim); font-size: 0.95rem; max-width: 580px; line-height: 1.6; margin-bottom: 2.5rem; }
+  .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; margin-bottom: 2rem; }
+  .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 1.4rem; transition: border-color 0.2s, transform 0.2s; }
+  .stat-card:hover { border-color: var(--green); transform: translateY(-3px); }
+  .stat-icon { font-size: 1.4rem; margin-bottom: 10px; }
+  .stat-num { font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 4px; }
+  .stat-num.green { color: var(--green); } .stat-num.amber { color: var(--accent); } .stat-num.red { color: var(--danger); }
+  .stat-label { font-size: 0.82rem; color: var(--text-dim); line-height: 1.4; }
+  .stat-source { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--muted); margin-top: 8px; }
+  .stat-change { font-family: 'Space Mono', monospace; font-size: 0.72rem; margin-top: 8px; padding: 3px 8px; border-radius: 20px; display: inline-block; }
+  .stat-change.up { background: rgba(255,107,107,0.15); color: var(--danger); }
+  .stat-change.dn { background: rgba(0,200,150,0.15); color: var(--green); }
+  .stat-change.warn { background: rgba(255,209,102,0.15); color: var(--accent); }
+  .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 2rem; }
+  .chart-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; }
+  .chart-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 4px; }
+  .chart-sub { font-size: 0.72rem; color: var(--muted); margin-bottom: 1.2rem; }
+  .map-container { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; margin-bottom: 2rem; }
+  .map-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+  .map-area { background: #0d2030; border-radius: 10px; height: 440px; position: relative; overflow: hidden; }
+  .map-svg-wrap { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+  .map-info { position: absolute; right: 16px; top: 16px; background: rgba(20,38,20,0.97); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.1rem; width: 230px; z-index: 10; }
+  .map-info-title { font-size: 0.88rem; font-weight: 600; margin-bottom: 10px; }
+  .map-info-row { display: flex; justify-content: space-between; font-size: 0.78rem; padding: 5px 0; border-bottom: 1px solid rgba(0,200,150,0.08); }
+  .map-info-row:last-of-type { border-bottom: none; }
+  .map-info-row .lbl { color: var(--muted); }
+  .map-info-row .val { font-weight: 600; }
+  .map-info-row .val.g { color: var(--green); } .map-info-row .val.a { color: var(--accent); } .map-info-row .val.r { color: var(--danger); }
+  .map-hint { font-size: 0.7rem; color: var(--muted); text-align: center; margin-top: 10px; font-family: 'Space Mono', monospace; }
+  .spot { cursor: pointer; }
+  .spot .ring { fill: none; stroke-width: 1.5; opacity: 0; animation: ringPulse 2.5s infinite ease-out; }
+  .spot:nth-child(2) .ring { animation-delay: 0.4s; }
+  .spot:nth-child(3) .ring { animation-delay: 0.8s; }
+  @keyframes ringPulse { 0% { r: 12; opacity: 0.6; } 100% { r: 26; opacity: 0; } }
+  .spot .dot { transition: r 0.2s; }
+  .spot:hover .dot { r: 12; }
+  .spot.active .dot-outline { stroke: white; stroke-width: 2; }
+  .map-legend { display: flex; gap: 16px; margin-top: 1rem; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--text-dim); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .news-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .news-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 1.4rem; transition: border-color 0.2s, transform 0.2s; }
+  .news-card:hover { border-color: var(--green); transform: translateY(-3px); }
+  .news-tag { font-family: 'Space Mono', monospace; font-size: 0.68rem; padding: 3px 10px; border-radius: 20px; margin-bottom: 10px; display: inline-block; }
+  .news-tag.positive { background: rgba(0,200,150,0.15); color: var(--green); }
+  .news-tag.info { background: rgba(255,209,102,0.15); color: var(--accent); }
+  .news-title { font-size: 0.92rem; font-weight: 600; line-height: 1.4; margin-bottom: 8px; }
+  .news-desc { font-size: 0.8rem; color: var(--text-dim); line-height: 1.6; margin-bottom: 10px; }
+  .news-meta { font-family: 'Space Mono', monospace; font-size: 0.68rem; color: var(--muted); }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+  footer { position: relative; z-index: 1; border-top: 1px solid var(--border); padding: 2rem; text-align: center; }
+  .footer-logo { font-family: 'Space Mono', monospace; font-size: 1rem; color: var(--green); margin-bottom: 8px; }
+  .footer-text { font-size: 0.8rem; color: var(--muted); margin-bottom: 12px; }
+  .footer-links { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+  .footer-links a { font-size: 0.78rem; color: var(--text-dim); text-decoration: none; transition: color 0.2s; }
+  .footer-links a:hover { color: var(--green); }
+  .oss-badge { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; font-family: 'Space Mono', monospace; font-size: 0.68rem; color: var(--muted); border: 1px solid var(--border); padding: 4px 12px; border-radius: 20px; }
+  .fade-up { opacity: 0; transform: translateY(24px); transition: opacity 0.5s ease, transform 0.5s ease; }
+  .fade-up.visible { opacity: 1; transform: translateY(0); }
+  @media (max-width: 768px) { .hero { flex-direction: column; gap: 2rem; } .hero-visual { max-width: 100%; } nav ul { display: none; } .map-info { width: 175px; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">Climate<span>ITS</span></div>
+  <ul>
+    <li><a href="#dashboard">Dashboard</a></li>
+    <li><a href="#peta">Peta</a></li>
+    <li><a href="#berita">Berita Baik</a></li>
+  </ul>
+  <span class="nav-badge">🌱 Open Source</span>
+</nav>
+
+<div class="ticker-wrap">
+  <div class="ticker-track">
+    <span class="ticker-item"><span class="dot" style="background:var(--danger)"></span> Suhu tertinggi Surabaya 2023: 37.6°C (November, Perak I) — Satu Data Surabaya</span>
+    <span class="ticker-item"><span class="dot" style="background:var(--green)"></span> Suhu terendah Surabaya 2023: 21.0°C (Juli, Juanda) — Satu Data Surabaya</span>
+    <span class="ticker-item"><span class="dot" style="background:var(--accent)"></span> Kelembaban rata-rata tahunan: 95% — Stasiun Perak I</span>
+    <span class="ticker-item"><span class="dot" style="background:var(--green)"></span> Tekanan udara rata-rata: 1014.1 mbar — Stasiun Perak I 2023</span>
+    <span class="ticker-item"><span class="dot" style="background:var(--danger)"></span> Puncak suhu terpanas: Oktober–November tiap tahun</span>
+    <span class="ticker-item"><span class="dot" style="background:var(--accent)"></span> Musim kering: Juni–September, kelembaban min. bisa turun ke 30%</span>
+    <span class="ticker-item"><span class="dot" style="background:var(--danger)"></span> Suhu tertinggi Surabaya 2023: 37.6°C (November, Perak I) — Satu Data Surabaya</span>
+    <span class="ticker-item"><span class="dot" style="background:var(--green)"></span> Suhu terendah Surabaya 2023: 21.0°C (Juli, Juanda) — Satu Data Surabaya</span>
+    <span class="ticker-item"><span class="dot" style="background:var(--accent)"></span> Kelembaban rata-rata tahunan: 95% — Stasiun Perak I</span>
+    <span class="ticker-item"><span class="dot" style="background:var(--green)"></span> Tekanan udara rata-rata: 1014.1 mbar — Stasiun Perak I 2023</span>
+    <span class="ticker-item"><span class="dot" style="background:var(--danger)"></span> Puncak suhu terpanas: Oktober–November tiap tahun</span>
+    <span class="ticker-item"><span class="dot" style="background:var(--accent)"></span> Musim kering: Juni–September, kelembaban min. bisa turun ke 30%</span>
+  </div>
+</div>
+
+<div class="hero">
+  <div class="hero-text">
+    <div class="hero-tag">SDGs Goal 13 — Climate Action · Kota Surabaya</div>
+    <h1>
+      Memantau Iklim
+      <span class="highlight">Kota Surabaya</span>
+    </h1>
+    <p>
+      Platform open source untuk memantau kondisi iklim, suhu, curah hujan, dan kualitas udara di Surabaya — berbasis data resmi BMKG dan Satu Data Surabaya.
+    </p>
+    <div class="ai-note">
+      Website dan pengumpulan data ini dibantu oleh kecerdasan buatan (AI) sebagai alat bantu riset dan visualisasi. Seluruh data bersumber dari lembaga resmi pemerintah Indonesia.
+    </div>
+  </div>
+  <div class="hero-visual">
+    <div class="mini-card">
+      <div class="mini-card-label">🌡 Suhu di atas rata-rata</div>
+      <div class="mini-card-value danger">+4.7°C</div>
+      <div class="mini-card-sub">Puncak 37.6°C vs rata-rata 32.9°C (2022)</div>
+    </div>
+    <div class="mini-card">
+      <div class="mini-card-label">💧 Kelembaban Rata-rata</div>
+      <div class="mini-card-value warn">95%</div>
+      <div class="mini-card-sub">Stasiun Perak I · 2023</div>
+    </div>
+    <div class="mini-card">
+      <div class="mini-card-label">📍 Titik Pemantauan BMKG</div>
+      <div class="mini-card-value">3</div>
+      <div class="mini-card-sub">Perak I, Perak II & Juanda</div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<section id="dashboard">
+  <div class="section-label">Dashboard</div>
+  <div class="section-title">Indikator Iklim Surabaya</div>
+  <p class="section-sub">Data dari Stasiun Meteorologi Perak I, Perak II, dan Juanda — diolah dari laporan resmi Satu Data Kota Surabaya & BMKG tahun 2023.</p>
+
+  <div class="dashboard-grid fade-up">
+    <div class="stat-card">
+      <div class="stat-icon">🌡</div>
+      <div class="stat-num amber">34.9°C</div>
+      <div class="stat-label">Suhu maksimum rata-rata tahunan</div>
+      <div class="stat-source">Perak I · 2023</div>
+      <span class="stat-change up">↑ naik dari 32.9°C di 2022</span>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🌡</div>
+      <div class="stat-num green">23.5°C</div>
+      <div class="stat-label">Suhu minimum rata-rata tahunan</div>
+      <div class="stat-source">Perak I · 2023</div>
+      <span class="stat-change dn">↓ lebih sejuk dari 2022 (25.1°C)</span>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🔥</div>
+      <div class="stat-num red">37.6°C</div>
+      <div class="stat-label">Suhu tertinggi tercatat (November)</div>
+      <div class="stat-source">Perak I · 2023</div>
+      <span class="stat-change up">↑ Puncak musim kemarau</span>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">💧</div>
+      <div class="stat-num amber">95%</div>
+      <div class="stat-label">Kelembaban maksimum rata-rata</div>
+      <div class="stat-source">Perak I · 2023</div>
+      <span class="stat-change warn">— Tinggi saat musim hujan</span>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🌬</div>
+      <div class="stat-num green">1014.1</div>
+      <div class="stat-label">Tekanan udara rata-rata (mbar)</div>
+      <div class="stat-source">Perak I · 2023</div>
+      <span class="stat-change dn">— Normal dan stabil</span>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">❄️</div>
+      <div class="stat-num green">21.0°C</div>
+      <div class="stat-label">Suhu terendah tercatat (Juli)</div>
+      <div class="stat-source">Juanda · 2023</div>
+      <span class="stat-change dn">↓ Puncak musim kering</span>
+    </div>
+  </div>
+
+  <div class="chart-grid fade-up">
+    <div class="chart-card">
+      <div class="chart-title">Suhu Maksimum & Minimum per Bulan</div>
+      <div class="chart-sub">°C · Stasiun Perak I · 2023 · Sumber: Satu Data Surabaya</div>
+      <canvas id="tempChart" height="190"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Kelembaban Udara per Bulan</div>
+      <div class="chart-sub">% · Stasiun Perak I · 2023 · Sumber: Satu Data Surabaya</div>
+      <canvas id="humidChart" height="190"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-grid fade-up">
+    <div class="chart-card">
+      <div class="chart-title">Tekanan Udara per Bulan</div>
+      <div class="chart-sub">mbar · Stasiun Perak I · 2023 · Sumber: Satu Data Surabaya</div>
+      <canvas id="pressChart" height="190"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Perbandingan Suhu Maks. Rata-rata Tahunan</div>
+      <div class="chart-sub">°C · Perak I 2021–2023 · Sumber: Satu Data Surabaya</div>
+      <canvas id="yearChart" height="190"></canvas>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<section id="peta">
+  <div class="section-label">Peta Interaktif</div>
+  <div class="section-title">Stasiun Pemantauan BMKG di Surabaya</div>
+  <p class="section-sub">Klik pada salah satu titik di peta untuk melihat data detail tiap stasiun meteorologi resmi BMKG di Kota Surabaya.</p>
+
+  <div class="map-container fade-up">
+    <div class="map-header">
+      <div>
+        <div class="chart-title">Peta Stasiun Meteorologi Kota Surabaya</div>
+        <div class="chart-sub">3 titik pemantauan resmi BMKG · Klik titik untuk melihat data</div>
+      </div>
+      <span style="font-family:'Space Mono',monospace;font-size:0.72rem;color:var(--green);">● Data 2023</span>
+    </div>
+
+    <div class="map-area">
+      <svg class="map-svg-wrap" viewBox="0 0 700 440" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="seaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#0c2535"/>
+            <stop offset="1" stop-color="#061420"/>
+          </linearGradient>
+          <linearGradient id="landGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#1e4a20"/>
+            <stop offset="1" stop-color="#153615"/>
+          </linearGradient>
+        </defs>
+        <rect width="700" height="440" fill="url(#seaGrad)"/>
+
+        <!-- Surabaya main city landmass (simplified) -->
+        <path d="M50,100 Q110,70 200,65 Q300,58 400,68 Q490,78 555,100 Q600,118 610,150 Q615,178 595,205 Q565,228 520,240 Q465,252 390,258 Q300,264 210,258 Q140,252 90,232 Q55,212 42,182 Q32,152 42,128 Z" fill="url(#landGrad)" opacity="0.95"/>
+
+        <!-- East extension near Madura strait -->
+        <path d="M555,100 Q620,90 670,108 Q690,128 680,158 Q660,182 620,198 Q588,210 555,205 Q565,228 520,240 L520,100 Z" fill="url(#landGrad)" opacity="0.75"/>
+
+        <!-- River / canal suggestion -->
+        <path d="M200,65 Q195,130 200,258" stroke="rgba(0,120,180,0.15)" stroke-width="3" fill="none"/>
+        <path d="M300,58 Q298,150 300,264" stroke="rgba(0,120,180,0.10)" stroke-width="2" fill="none"/>
+
+        <!-- Grid lines -->
+        <line x1="0" y1="180" x2="700" y2="180" stroke="rgba(0,200,150,0.05)" stroke-width="1"/>
+        <line x1="350" y1="0" x2="350" y2="440" stroke="rgba(0,200,150,0.05)" stroke-width="1"/>
+
+        <!-- City name -->
+        <text x="300" y="170" font-family="Space Mono" font-size="13" fill="rgba(0,200,150,0.22)" text-anchor="middle" letter-spacing="4">SURABAYA</text>
+
+        <!-- Sea labels -->
+        <text x="200" y="360" font-family="Space Mono" font-size="10" fill="rgba(0,140,200,0.3)" text-anchor="middle">Laut Jawa</text>
+        <text x="570" y="310" font-family="Space Mono" font-size="10" fill="rgba(0,140,200,0.3)" text-anchor="middle">Selat Madura</text>
+
+        <!-- Dashed connector lines between stations -->
+        <line x1="185" y1="118" x2="300" y2="145" stroke="rgba(0,200,150,0.12)" stroke-width="1" stroke-dasharray="5,4"/>
+        <line x1="300" y1="145" x2="440" y2="210" stroke="rgba(0,200,150,0.12)" stroke-width="1" stroke-dasharray="5,4"/>
+
+        <!-- === STATION: Perak I === -->
+        <g class="spot" id="spot-perak1" onclick="selectSpot('perak1')">
+          <circle class="ring" cx="185" cy="118" r="12" stroke="#00C896"/>
+          <circle class="dot-outline" cx="185" cy="118" r="10" fill="#00C896" fill-opacity="0.2" stroke="#00C896" stroke-width="1.5"/>
+          <circle class="dot" cx="185" cy="118" r="9" fill="#00C896" fill-opacity="0.9"/>
+          <text x="185" y="100" font-family="Sora" font-size="11" fill="#00C896" text-anchor="middle" font-weight="600">Perak I</text>
+        </g>
+
+        <!-- === STATION: Perak II === -->
+        <g class="spot" id="spot-perak2" onclick="selectSpot('perak2')">
+          <circle class="ring" cx="300" cy="145" r="12" stroke="#FFD166"/>
+          <circle class="dot-outline" cx="300" cy="145" r="10" fill="#FFD166" fill-opacity="0.2" stroke="#FFD166" stroke-width="1.5"/>
+          <circle class="dot" cx="300" cy="145" r="9" fill="#FFD166" fill-opacity="0.9"/>
+          <text x="300" y="127" font-family="Sora" font-size="11" fill="#FFD166" text-anchor="middle" font-weight="600">Perak II</text>
+        </g>
+
+        <!-- === STATION: Juanda === -->
+        <g class="spot" id="spot-juanda" onclick="selectSpot('juanda')">
+          <circle class="ring" cx="440" cy="210" r="12" stroke="#FF6B6B"/>
+          <circle class="dot-outline" cx="440" cy="210" r="10" fill="#FF6B6B" fill-opacity="0.2" stroke="#FF6B6B" stroke-width="1.5"/>
+          <circle class="dot" cx="440" cy="210" r="9" fill="#FF6B6B" fill-opacity="0.9"/>
+          <text x="440" y="192" font-family="Sora" font-size="11" fill="#FF6B6B" text-anchor="middle" font-weight="600">Juanda</text>
+        </g>
+      </svg>
+
+      <!-- INFO PANEL -->
+      <div class="map-info" id="mapInfo">
+        <div class="map-info-title" id="infoTitle" style="color:var(--green);">📍 Pilih Stasiun</div>
+        <div id="infoBody" style="color:var(--muted);font-size:0.8rem;line-height:1.7;margin-top:4px;">
+          Klik salah satu titik berwarna di peta untuk melihat data detail stasiun pemantauan.
+        </div>
+        <div class="map-hint" id="mapHint">↖ klik titik di peta</div>
+      </div>
+    </div>
+
+    <div class="map-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Stasiun Perak I</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Stasiun Perak II</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--danger)"></div>Stasiun Juanda (Bandara)</div>
+      <div class="legend-item" style="margin-left:auto;font-family:'Space Mono',monospace;font-size:0.68rem;color:var(--muted);">Sumber: Satu Data Surabaya 2023</div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<section id="berita">
+  <div class="section-label">Berita Baik</div>
+  <div class="section-title">Kemajuan Nyata dari Surabaya 🇮🇩</div>
+  <p class="section-sub">Berbagai langkah nyata yang telah diambil Kota Surabaya dalam menghadapi perubahan iklim dan menjaga kualitas lingkungan hidup.</p>
+
+  <div class="news-grid fade-up">
+    <div class="news-card">
+      <span class="news-tag positive">✅ Penghijauan</span>
+      <div class="news-title">Surabaya Tambah Ratusan Ribu Pohon di Seluruh Kota</div>
+      <div class="news-desc">Pemkot Surabaya terus memperluas ruang terbuka hijau di jalur pedestrian, taman kota, dan bantaran sungai untuk meredam efek panas perkotaan (urban heat island).</div>
+      <div class="news-meta">Pemkot Surabaya · 2024</div>
+    </div>
+    <div class="news-card">
+      <span class="news-tag positive">✅ Banjir</span>
+      <div class="news-title">Sistem Drainase Otomatis Kurangi Titik Banjir Kota</div>
+      <div class="news-desc">Surabaya mengoperasikan pompa air otomatis yang dikendalikan secara terpusat, berhasil mengurangi jumlah titik banjir secara signifikan dalam tiga tahun terakhir.</div>
+      <div class="news-meta">DPUPR Surabaya · 2024</div>
+    </div>
+    <div class="news-card">
+      <span class="news-tag info">🌱 Sampah</span>
+      <div class="news-title">Bank Sampah Surabaya Jadi Percontohan Nasional</div>
+      <div class="news-desc">Jaringan bank sampah Surabaya kini menjadi salah satu yang terbesar di Indonesia, memproses ratusan ton sampah per hari secara berkelanjutan dan melibatkan masyarakat.</div>
+      <div class="news-meta">DLH Surabaya · 2024</div>
+    </div>
+    <div class="news-card">
+      <span class="news-tag positive">✅ Transportasi</span>
+      <div class="news-title">Bus Listrik Trans Semanggi Mulai Beroperasi</div>
+      <div class="news-desc">Armada bus listrik mulai melayani koridor-koridor utama Surabaya, mengurangi emisi karbon kendaraan umum di jalur padat perkotaan secara langsung.</div>
+      <div class="news-meta">Dishub Surabaya · 2024</div>
+    </div>
+    <div class="news-card">
+      <span class="news-tag positive">✅ Mangrove</span>
+      <div class="news-title">Ekowisata Mangrove Wonorejo Terus Berkembang</div>
+      <div class="news-desc">Kawasan mangrove Wonorejo di Surabaya Timur terus diperluas, memperkuat fungsinya sebagai pelindung pantai alami sekaligus destinasi edukasi lingkungan warga kota.</div>
+      <div class="news-meta">KLHK + Pemkot · 2024</div>
+    </div>
+    <div class="news-card">
+      <span class="news-tag info">🌊 Sungai</span>
+      <div class="news-title">Kali Surabaya Berangsur Membaik Kualitas Airnya</div>
+      <div class="news-desc">Program revitalisasi sungai kota berhasil menurunkan kadar pencemaran Kali Surabaya, dengan indeks kualitas air yang terus membaik dari tahun ke tahun berkat penanganan limbah industri.</div>
+      <div class="news-meta">DLH Surabaya · 2023</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-logo">ClimateITS</div>
+  <div class="footer-text">Platform pemantauan iklim open source untuk Kota Surabaya — SDGs Goal 13<br>Data: BMKG · Satu Data Surabaya · satudata.surabaya.go.id</div>
+  <div class="footer-links">
+    <a href="#">Tentang</a>
+    <a href="#">Sumber Data</a>
+    <a href="#">Kontribusi</a>
+    <a href="https://satudata.surabaya.go.id" target="_blank">Satu Data Surabaya</a>
+    <a href="https://bmkg.go.id" target="_blank">BMKG</a>
+  </div>
+  <div class="oss-badge">⊞ Open Source — MIT License</div>
+</footer>
+
+<script>
+const stationData = {
+  perak1: {
+    name: 'Stasiun Meteorologi Perak I',
+    color: '#00C896',
+    rows: [
+      ['Suhu maks. rata-rata', '34.9°C', 'r'],
+      ['Suhu min. rata-rata', '23.5°C', 'g'],
+      ['Suhu tertinggi (Nov)', '37.6°C', 'r'],
+      ['Suhu terendah (Ags–Nov)', '30°C (min)', 'g'],
+      ['Kelembaban maks.', '95%', 'a'],
+      ['Tekanan udara', '1014.1 mbar', ''],
+    ],
+    note: 'Tahun sebelumnya (2022): suhu maks. rata-rata 32.9°C — naik signifikan di 2023.',
+    src: 'Satu Data Kota Surabaya 2023'
+  },
+  perak2: {
+    name: 'Stasiun Meteorologi Perak II',
+    color: '#FFD166',
+    rows: [
+      ['Suhu maks. rata-rata', '33.8°C', 'r'],
+      ['Suhu min. rata-rata', '25.6°C', 'g'],
+      ['Suhu tertinggi (Okt–Nov)', '35.5°C', 'r'],
+      ['Suhu terendah', '24.2°C (Ags)', 'g'],
+      ['Kelembaban maks.', '93%', 'a'],
+      ['Tekanan udara', '1014.2 mbar', ''],
+    ],
+    note: 'Suhu maks. Okt & Nov sama-sama mencapai 35.5°C — puncak kemarau.',
+    src: 'Satu Data Kota Surabaya 2023'
+  },
+  juanda: {
+    name: 'Stasiun Meteorologi Juanda',
+    color: '#FF6B6B',
+    rows: [
+      ['Suhu maks. rata-rata', '34.4°C', 'r'],
+      ['Suhu min. rata-rata', '23.0°C', 'g'],
+      ['Suhu terendah (Juli)', '21.0°C', 'g'],
+      ['Kelembaban maks.', '97.3%', 'a'],
+      ['Kelembaban min.', '52.4% (Ags)', ''],
+      ['Lokasi', 'Bandara Juanda, Sidoarjo', ''],
+    ],
+    note: 'Suhu terendah 21.0°C di Juli — titik paling sejuk dari seluruh stasiun.',
+    src: 'Satu Data Kota Surabaya 2023'
+  }
+};
+
+function selectSpot(id) {
+  document.querySelectorAll('.spot').forEach(s => s.classList.remove('active'));
+  document.getElementById('spot-' + id).classList.add('active');
+
+  const d = stationData[id];
+  document.getElementById('infoTitle').innerHTML = `<span style="color:${d.color}">📍 ${d.name}</span>`;
+  document.getElementById('mapHint').style.display = 'none';
+
+  let rowsHtml = d.rows.map(([lbl, val, cls]) =>
+    `<div class="map-info-row"><span class="lbl">${lbl}</span><span class="val ${cls}">${val}</span></div>`
+  ).join('');
+
+  document.getElementById('infoBody').innerHTML =
+    rowsHtml +
+    `<div style="margin-top:8px;font-size:0.72rem;color:var(--muted);line-height:1.5;">${d.note}</div>` +
+    `<div style="margin-top:6px;font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted);opacity:0.7;">📄 ${d.src}</div>`;
+}
+
+// CHARTS
+Chart.defaults.color = '#B0CCB0';
+Chart.defaults.borderColor = 'rgba(0,200,150,0.1)';
+Chart.defaults.font.family = 'Sora';
+const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+
+// Temp chart — Perak I 2023 (real data)
+new Chart(document.getElementById('tempChart'), {
+  type: 'line',
+  data: {
+    labels: months,
+    datasets: [
+      { label: 'Suhu Maks (°C)', data: [34.2,33.5,34.0,34.5,34.4,34.4,34.2,33.8,35.1,37.4,37.6,36.1], borderColor: '#FF6B6B', tension: 0.4, pointRadius: 4, pointBackgroundColor: '#FF6B6B', fill: false },
+      { label: 'Suhu Min (°C)', data: [21.2,24.0,24.0,23.8,23.0,24.5,22.2,22.2,22.5,24.7,25.6,24.0], borderColor: '#00C896', tension: 0.4, pointRadius: 4, pointBackgroundColor: '#00C896', fill: false }
+    ]
+  },
+  options: { responsive: true, plugins: { legend: { labels: { boxWidth: 10, font: { size: 11 } } } }, scales: { y: { min: 18, max: 40, grid: { color: 'rgba(0,200,150,0.08)' }, title: { display: true, text: '°C' } }, x: { grid: { display: false } } } }
+});
+
+// Humidity chart — Perak I 2023 (real data)
+new Chart(document.getElementById('humidChart'), {
+  type: 'bar',
+  data: {
+    labels: months,
+    datasets: [
+      { label: 'Kelembaban Maks (%)', data: [97,98,96,98,95,92,95,92,89,95,95,97], backgroundColor: 'rgba(0,200,150,0.55)', borderRadius: 4 },
+      { label: 'Kelembaban Min (%)', data: [49,57,46,47,41,43,37,30,30,31,30,42], backgroundColor: 'rgba(255,209,102,0.55)', borderRadius: 4 }
+    ]
+  },
+  options: { responsive: true, plugins: { legend: { labels: { boxWidth: 10, font: { size: 11 } } } }, scales: { y: { min: 0, max: 110, grid: { color: 'rgba(0,200,150,0.08)' }, title: { display: true, text: '%' } }, x: { grid: { display: false } } } }
+});
+
+// Pressure chart — Perak I 2023 (real data)
+new Chart(document.getElementById('pressChart'), {
+  type: 'line',
+  data: {
+    labels: months,
+    datasets: [
+      { label: 'Tekanan Maks (mbar)', data: [1012.8,1012.6,1014.2,1013.3,1014.8,1013.2,1015.2,1017.3,1014.8,1014.9,1013.0,1013.6], borderColor: '#378ADD', backgroundColor: 'rgba(55,138,221,0.08)', fill: true, tension: 0.4, pointRadius: 3 },
+      { label: 'Tekanan Min (mbar)', data: [1003.7,1004.6,1005.2,1004.9,1004.0,1007.0,1007.5,1008.0,1007.3,1006.4,1004.7,1004.9], borderColor: '#8FAF8F', fill: false, tension: 0.4, pointRadius: 3, borderDash: [4,4] }
+    ]
+  },
+  options: { responsive: true, plugins: { legend: { labels: { boxWidth: 10, font: { size: 11 } } } }, scales: { y: { min: 1000, max: 1021, grid: { color: 'rgba(0,200,150,0.08)' }, title: { display: true, text: 'mbar' } }, x: { grid: { display: false } } } }
+});
+
+// Year comparison — Perak I real data
+new Chart(document.getElementById('yearChart'), {
+  type: 'bar',
+  data: {
+    labels: ['2021','2022','2023'],
+    datasets: [{ label: 'Suhu Maks Rata-rata (°C)', data: [33.8, 32.9, 34.9], backgroundColor: ['rgba(0,200,150,0.65)','rgba(255,209,102,0.65)','rgba(255,107,107,0.75)'], borderRadius: 10, borderSkipped: false }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { min: 30, max: 37, grid: { color: 'rgba(0,200,150,0.08)' }, title: { display: true, text: '°C' } }, x: { grid: { display: false } } } }
+});
+
+// Scroll fade-up
+const observer = new IntersectionObserver(entries => { entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }); }, { threshold: 0.1 });
+document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
